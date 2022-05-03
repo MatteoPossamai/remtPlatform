@@ -1,0 +1,129 @@
+REMT - Application that let to transfer file, and to execute them on a remote machine
+
+Server requirement: 
+
+- Receive file from the client
+- Send file to the client
+- Execute file, according to provided informations
+- Send back the result
+- Store files in a space ( db or fs)
+- Caching results
+
+Client requirement: 
+
+- Receive file from the server
+- Send file to the server
+- Receive the result
+- Asking for file already saved
+
+Client sending - Server receiving protocol:
+
+1) Client connects
+2) Client sends a message (JSON or XML) into he says he want to send a file, and all the info
+3) Server ACCEPT the operation
+4) Client sends the file
+5) Server respond that everything succeded
+
+First message structure
+{
+	"number" : token,
+	"operation" : "send",
+	"file-name" : name, 
+	"file-path": path
+}
+
+--If the file with the same name already exists, send the warning asking for confirmation
+
+ACK message structure (SUCCESS)
+{
+	"number" : token, 
+	"ack" : "true", 
+	"access" : "allowed",
+	"code" : "0000"
+}
+
+ACK message structure (INSUCCESS)
+{
+	"number" : token, 
+	"ack" : "false", 
+	"access" : "denied",
+	"code" : code
+}
+
+Status message (SUCCESS)
+
+{
+	"number" : token, 
+	"status" : "success",
+ 	"code" : "0000"
+}
+
+Status message (INSUCCESS)
+
+{
+	"number" : token, 
+	"status" : "insuccess",
+ 	"code" : code
+}
+
+If everything is fine: 
+- Code 0000
+If token is missing:
+- Code 0001
+If operation missing:
+- Code 0002
+If operation not supported: 
+- Code 0003
+
+
+Server sending - client receiving protocol: 
+
+First message structure
+{
+	"number" : token,
+	"operation" : "receive",
+	"file-name" : name
+}
+
+ACK message structure (SUCCESS)
+{
+	"number" : token, 
+	"ack" : "true", 
+	"access" : "allowed"
+}
+
+ACK message structure (INSUCCESS)
+{
+	"number" : token, 
+	"ack" : "false", 
+	"access" : "denied",
+	"error" : code
+}
+
+Status message (SUCCESS)
+
+{
+	"number" : token, 
+	"status" : "success",
+ 	"code" : "0000"
+}
+
+Status message (INSUCCESS)
+
+{
+	"number" : token, 
+	"status" : "insuccess",
+ 	"code" : code
+}
+
+If everything is fine: 
+- Code 0000
+If token is missing:
+- Code 0001
+If operation missing:
+- Code 0002
+If operation not supported: 
+- Code 0003
+If file requested does not exist: 
+- Code 0004
+
