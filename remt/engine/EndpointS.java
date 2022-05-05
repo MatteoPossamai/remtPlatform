@@ -78,36 +78,40 @@ public class EndpointS extends Thread {
     } // send
 
     public static void receive(String token, String fileName, String filePath, int length) throws IOException{
+        if(length > 0){
+            new File(basePath + filePath).mkdirs();
+            
+            // Stream for binary data and file transfer
+            OutputStream out = new FileOutputStream(basePath + filePath + fileName);
+            InputStream in = socket.getInputStream();
 
-        // Stream for binary data and file transfer
-        OutputStream out = new FileOutputStream(basePath + filePath + fileName);
-        InputStream in = socket.getInputStream();
+            // Variables 
+            int bytesRead;
 
-        // Variables 
-        int bytesRead;
+            // Bytes for store info to be sent
+            byte[] buffer = new byte[length];
 
-        // Bytes for store info to be sent
-        byte[] buffer = new byte[length];
+            //-------------------------
+            // Send file 
+            //------------------------- 
 
-        //-------------------------
-        // Send file 
-        //------------------------- 
+            while(length > 0 &&(bytesRead = in.read(buffer)) > 0 ){
+                length -= bytesRead;
+                out.write(buffer, 0, bytesRead);
 
-        while((bytesRead = in.read(buffer)) > 0){
-            out.write(buffer, 0, bytesRead);
+                if (bytesRead < 1024) {
+                    break;
+                }
 
-            if (bytesRead < 1024) {
-                break;
-            }
+            } // while
 
-        } // while
+            //-------------------------
+            // End of file transfer
+            //-------------------------
+            
 
-        //-------------------------
-        // End of file transfer
-        //-------------------------
-        
-
-        out.close();
+            out.close();
+        } // if
     } // receive
 
     public void run() {
@@ -173,7 +177,7 @@ public class EndpointS extends Thread {
                             // All the logic for the file transfer 
                             receive(token, fileName, filePath, length);
 
-                            System.out.println("File received successfully from [" + ipAddr + ":" + portNum + "]");
+                            if(length > 0)System.out.println("File received successfully from [" + ipAddr + ":" + portNum + "]");
                         }catch(Exception ex){
                             System.out.println("Error: " + ex.getMessage());
                         }

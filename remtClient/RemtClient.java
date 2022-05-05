@@ -44,24 +44,32 @@ public class RemtClient {
         byte[] buffer = new byte[length];
 
         // Setting up channels to transfer data
-        InputStream in = new FileInputStream(file);
+        InputStream in = null;
         OutputStream out = socket.getOutputStream();
 
-        // Variables 
-        int bytesRead;
+        try{
+            in = new FileInputStream(file);
+            
+            // Variables 
+            int bytesRead;
 
-        //-------------------------
-        // Send file 
-        //------------------------- 
+            //-------------------------
+            // Send file 
+            //------------------------- 
 
-        while ((bytesRead = in.read(buffer)) > 0) {
-            out.write(buffer, 0, bytesRead);
+            while ((bytesRead = in.read(buffer)) > 0) {
+                out.write(buffer, 0, bytesRead);
+            }
+
+            //-------------------------
+            // End of file transfer
+            //-------------------------
+            in.close();
+        }catch(IOException e){
+            System.out.println("Error: " + e);
         }
-
-        //-------------------------
-        // End of file transfer
-        //-------------------------
-        in.close();
+        
+        
     } // send
     
     public static void main(String[] args) throws Exception {
@@ -108,6 +116,7 @@ public class RemtClient {
                 //Ask for file path
                 System.out.println("Insert file path");
                 filePath = stdIn.readLine();
+                filePath = filePath != null && !filePath.isEmpty() ? filePath + "\\" : "";
 
                 // Getting the file to send from the file system
                 file = new File(basePath + filePath + fileName);
@@ -125,7 +134,7 @@ public class RemtClient {
 
                 // Checking if they are empty
                 newFileName = newFileName != null && !newFileName.isEmpty() ? newFileName : fileName;
-                newFilePath = newFilePath != null && !newFilePath.isEmpty() ? newFilePath : filePath;
+                newFilePath = newFilePath != null && !newFilePath.isEmpty() ? newFilePath : "";
             }
 
             //Create the XML request, and send it to the server
