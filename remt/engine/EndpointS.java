@@ -1,12 +1,12 @@
 package engine;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.net.Socket;
@@ -20,11 +20,17 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
 public class EndpointS extends Thread {
-    //The socket that will be used to communicate with the client
-    Socket socket;
+    // The socket that will be used to communicate with the client
+    static Socket socket;
+
+    //  XML template
+    String xmlTemplate = "<response><number>%s</number><status>%s</status><code>%s</code></response>";
+
+    // Base Path for the server
+    static String basePath = "C:\\remtServer\\";
 
     public EndpointS(Socket socket) {
-        this.socket = socket;
+        EndpointS.socket = socket;
     } // Return the socket itself, via constructor
 
     private static Document generateDOM(String xml) throws Exception {
@@ -37,37 +43,90 @@ public class EndpointS extends Thread {
         return doc;
     } // generateDOM
 
-    public static void send(){
+    public static String[] send(String token, String fileName, String filePath) throws IOException{
+        String[] result = new String[3];
+        result[0] = token;
 
-    }
+        //Stream for binary data and file transfer
+        OutputStream out = null;
+        try{
+            out = new FileOutputStream(basePath + filePath + fileName);
+            System.out.println(basePath + filePath + fileName);
+        }catch(IOException ex){
+            result[1] = "insuccess";
+            result[2] = "0004";
+        }
+        InputStream in = socket.getInputStream();
 
-    public static void receive(){
+        // Bytes for store info to be sent
+        byte[] buffer = new byte[1024 * 16];
 
-    }
+        //-------------------------
+        // Send file 
+        //------------------------- 
+
+        System.out.println("Sending...");
+
+        //-------------------------
+        // End of file transfer
+        //-------------------------
+
+        out.close();
+
+        return result;
+
+    } // send
+
+    public static void receive(String token, String fileName, String filePath, int length) throws IOException{
+
+        // Stream for binary data and file transfer
+        OutputStream out = new FileOutputStream(basePath + filePath + fileName);
+        InputStream in = socket.getInputStream();
+
+        // Variables 
+        int bytesRead;
+
+        // Bytes for store info to be sent
+        byte[] buffer = new byte[length];
+
+        //-------------------------
+        // Send file 
+        //------------------------- 
+
+        while((bytesRead = in.read(buffer)) > 0){
+            out.write(buffer, 0, bytesRead);
+
+            if (bytesRead < 1024) {
+                break;
+            }
+
+        } // while
+
+        //-------------------------
+        // End of file transfer
+        //-------------------------
+        
+
+        out.close();
+    } // receive
 
     public void run() {
         try {
-            System.out.println("New connection: " + socket);
             //Client specicications
             String ipAddr = socket.getInetAddress().getHostAddress();
             int portNum = socket.getPort();
+
+            // Get the connection socket information 
+            System.out.println("New connection: [" + ipAddr + ":" + portNum + "]");
 
             // Stream for text to accord with the client
             PrintWriter outT = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader inT = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            //Stream for binary data and file transfer
-            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-            DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            byte[] bytes = new byte[1024];
-
             //Variables for communication and the file transfer
             Document doc;
-            String operation = "", fileName, filePath, number, status, code, req, res;
-            boolean ack = false;
-
-            //XML template
-            String xmlTemplate = "<response><number>%s</number><ack>%s</ack><status>%s</status><code>%s</code></response>";
+            String operation = "", fileName="", filePath="", token, status, code, req, res;
+            int length = 0;
 
             //------------------------------------------------------------------
             //  Communication with the client 
@@ -76,7 +135,7 @@ public class EndpointS extends Thread {
             // While the client is connected, wait for it
             while(!operation.equals("STOP")){
                 // Variable reset
-                number = "";
+                token = "";
                 status = "";
                 status = "";
                 code = "";
@@ -87,33 +146,62 @@ public class EndpointS extends Thread {
                 // Interpretation of the request
                 doc = generateDOM(req);
                 operation = ((org.w3c.dom.Document) doc).getElementsByTagName("operation").item(0).getTextContent();
-                number = ((org.w3c.dom.Document) doc).getElementsByTagName("number").item(0).getTextContent();
+                token = ((org.w3c.dom.Document) doc).getElementsByTagName("token").item(0).getTextContent();
+                fileName = ((org.w3c.dom.Document) doc).getElementsByTagName("fileName").item(0).getTextContent();
+                filePath = ((org.w3c.dom.Document) doc).getElementsByTagName("filePath").item(0).getTextContent();
+                length = Integer.parseInt(((org.w3c.dom.Document) doc).getElementsByTagName("length").item(0).getTextContent());
+
+                filePath = filePath != null && !filePath.isEmpty() ? filePath + "\\" : "";
 
                 // Handle the request
                 switch(operation){
                     case "STOP":
                         System.out.println("Client [" + ipAddr + ":" + portNum + "] has disconnected.");
+
+                        // Generate the response, and send it to the client
+                        res = String.format(xmlTemplate, token, status, code);
+                        outT.println(res);
                         break;
                     case "send": 
-                        // Send the file he require
+                        // Receive the file he sends
+
+                        // Generate the response, and send it to the client
+                        res = String.format(xmlTemplate, token, "allowed", "0000");
+                        outT.println(res);
+
+                        try{
+                            // All the logic for the file transfer 
+                            receive(token, fileName, filePath, length);
+
+                            System.out.println("File received successfully from [" + ipAddr + ":" + portNum + "]");
+                        }catch(Exception ex){
+                            System.out.println("Error: " + ex.getMessage());
+                        }
                         break;
                     case "receive":
-                        // Receive the file he sends
+                        // Send the file he require
+
+                        // Generate the response, and send it to the client
+                        res = String.format(xmlTemplate, token, "allowed", "0000");
+                        outT.println(res);
+
+                        // All the logic for the file transfer
+
                         break;
+
                     default:
                         // Thow error to the client
-                        ack = false;
                         status = "denied";
                         code = "0003";
+
+                        // Generate the response, and send it to the client
+                        res = String.format(xmlTemplate, token, status, code);
+                        outT.println(res);
+
                         break;
-                }
+                }// switch
 
-                // Generate the response
-                res = String.format(xmlTemplate, number, ack, status, code);
-
-                // Send the response to the client
-                outT.println(res);
-            }
+            } // while
 
             //------------------------------------------------------------------
             //  End of communication with the client
@@ -123,14 +211,13 @@ public class EndpointS extends Thread {
             //Close the socket
             outT.close();
             inT.close();
-            in.close();
-            out.close();
             socket.close();
 
         } catch (Exception e) {
             System.out.println("Error: " + e);
         }
     }// Run the thread of the server
+
 }
 
 //https://stackoverflow.com/questions/9520911/java-sending-and-receiving-file-byte-over-sockets

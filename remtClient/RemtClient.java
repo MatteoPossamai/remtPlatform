@@ -4,8 +4,11 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.net.Socket;
@@ -21,6 +24,8 @@ import org.xml.sax.InputSource;
 
 public class RemtClient {
 
+    static final String basePath = "C:\\remtClient\\";
+
     private static Document generateDOM(String xml) throws Exception {
         // Creazione del DOM
         InputSource is = new InputSource(new StringReader(xml));
@@ -30,6 +35,34 @@ public class RemtClient {
         ((Node) doc.getDocumentElement()).normalize();
         return doc;
     } // generateDOM
+
+    public static void send(Socket socket, String token, String fileName, String filePath, File file) throws IOException{
+        // Length of the file
+        int length = (int) file.length();
+
+        // Byte buffer
+        byte[] buffer = new byte[length];
+
+        // Setting up channels to transfer data
+        InputStream in = new FileInputStream(file);
+        OutputStream out = socket.getOutputStream();
+
+        // Variables 
+        int bytesRead;
+
+        //-------------------------
+        // Send file 
+        //------------------------- 
+
+        while ((bytesRead = in.read(buffer)) > 0) {
+            out.write(buffer, 0, bytesRead);
+        }
+
+        //-------------------------
+        // End of file transfer
+        //-------------------------
+        in.close();
+    } // send
     
     public static void main(String[] args) throws Exception {
         //Inizialize socket variables
@@ -50,11 +83,12 @@ public class RemtClient {
 
         //Variables for communication and the file transfer
         Document doc;
-        String operation = "", fileName="", filePath="", number="", error, status, code, req, res;
-        boolean ack = false;
+        File file = null;
+        int length = 0;
+        String operation = "", fileName="", filePath="", newFileName= "", newFilePath="", token="", status, code, req, res;
 
         //XML template
-        String xmlTemplate = "<request><number>%s</number><operation>%s</operation><file-name>%s</file-name><file-path>%s</file-path></request>";
+        String xmlTemplate = "<request><token>%s</token><operation>%s</operation><fileName>%s</fileName><filePath>%s</filePath><length>%s</length></request>";
 
         //------------------------------------------------------
         // Send what you want to do to the server
@@ -74,19 +108,54 @@ public class RemtClient {
                 //Ask for file path
                 System.out.println("Insert file path");
                 filePath = stdIn.readLine();
+
+                // Getting the file to send from the file system
+                file = new File(basePath + filePath + fileName);
+
+                // Getting length of the file and creating the buffer
+                length = (int) file.length();
+
+                //Ask for file name
+                System.out.println("Insert new file name (if you want to change it)");
+                newFileName = stdIn.readLine();
+
+                //Ask for file path
+                System.out.println("Insert new file path (if you want to change it)");
+                newFilePath = stdIn.readLine();
+
+                // Checking if they are empty
+                newFileName = newFileName != null && !newFileName.isEmpty() ? newFileName : fileName;
+                newFilePath = newFilePath != null && !newFilePath.isEmpty() ? newFilePath : filePath;
             }
 
             //Create the XML request, and send it to the server
-            req = String.format(xmlTemplate, number, operation, fileName, filePath);
+            req = String.format(xmlTemplate, token, operation, newFileName, newFilePath, ""+length);
             outT.println(req);
 
             //Get the response from the server
             if(!operation.equals("STOP")){
                 res = inT.readLine();
 
-                //Interpret the response
+                // Interprete the response
                 doc = generateDOM(res);
-                System.out.println(((org.w3c.dom.Document) doc).getElementsByTagName("code").item(0).getTextContent());
+                status = doc.getElementsByTagName("status").item(0).getTextContent();
+
+                //If the operation is successful
+                if(status.equals("allowed")){
+                    switch(operation){
+                        case "send":
+                            //Send the file to the server
+                            send(socket, token, fileName, filePath, file);
+                            break;
+                        case "receive":
+                            //Receive the file from the server
+                            //receive(socket, token, fileName, filePath);
+                            break;
+                    } // switch
+                }else{
+                    code = doc.getElementsByTagName("code").item(0).getTextContent();
+                    System.out.println("Error code: " + code);
+                } // if
             }
         }
 
@@ -98,6 +167,6 @@ public class RemtClient {
         in.close();
         out.close();
         socket.close();
-    }
-    
+    } // Run the client
+     
 }
