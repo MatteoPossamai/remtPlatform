@@ -1,10 +1,7 @@
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -36,7 +33,7 @@ public class RemtClient {
         return doc;
     } // generateDOM
 
-    public static void send(Socket socket, String token, String fileName, String filePath, File file) throws IOException{
+    public static void send(Socket socket, String token, File file) throws IOException{
         // Length of the file
         int length = (int) file.length();
 
@@ -71,6 +68,45 @@ public class RemtClient {
         
         
     } // send
+
+    public static void receive(Socket socket, String token, String fileName, String filePath, int length) throws IOException{
+        if(length > 0){
+            new File(basePath + filePath).mkdirs();
+            filePath = filePath != null && !filePath.isEmpty() ? filePath + "\\" : "";
+            System.out.println(basePath + filePath + fileName);
+            
+            // Stream for binary data and file transfer
+            OutputStream out = new FileOutputStream(basePath + filePath + fileName);
+            InputStream in = socket.getInputStream();
+
+            // Variables 
+            int bytesRead;
+
+            // Bytes for store info to be sent
+            byte[] buffer = new byte[length];
+
+            //-------------------------
+            // Send file 
+            //------------------------- 
+
+            while(length > 0 &&(bytesRead = in.read(buffer)) > 0 ){
+                length -= bytesRead;
+                out.write(buffer, 0, bytesRead);
+
+                if (bytesRead < 1024) {
+                    break;
+                }
+
+            } // while
+
+            //-------------------------
+            // End of file transfer
+            //-------------------------
+            
+
+            out.close();
+        } // if
+    } // receive
     
     public static void main(String[] args) throws Exception {
         //Inizialize socket variables
@@ -84,10 +120,6 @@ public class RemtClient {
         BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
         PrintWriter outT = new PrintWriter(socket.getOutputStream(), true);
         BufferedReader inT = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-        //Stream for binary data and file transfer
-        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-        DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         //Variables for communication and the file transfer
         Document doc;
@@ -108,7 +140,7 @@ public class RemtClient {
             System.out.println("What do you want to do? (STOP, send, receive)");
             operation = stdIn.readLine();
 
-            if(!operation.equals("STOP")){
+            if(!operation.equals("STOP") ){
                 //Ask for file name
                 System.out.println("Insert file name");
                 fileName = stdIn.readLine();
@@ -138,7 +170,7 @@ public class RemtClient {
             }
 
             //Create the XML request, and send it to the server
-            req = String.format(xmlTemplate, token, operation, newFileName, newFilePath, ""+length);
+            req = String.format(xmlTemplate, token, operation, operation.equals("send") ? newFileName : fileName, operation.equals("send") ? newFilePath : filePath, ""+length);
             outT.println(req);
 
             //Get the response from the server
@@ -148,17 +180,18 @@ public class RemtClient {
                 // Interprete the response
                 doc = generateDOM(res);
                 status = doc.getElementsByTagName("status").item(0).getTextContent();
+                length = Integer.parseInt(((org.w3c.dom.Document) doc).getElementsByTagName("length").item(0).getTextContent());
 
                 //If the operation is successful
                 if(status.equals("allowed")){
                     switch(operation){
                         case "send":
                             //Send the file to the server
-                            send(socket, token, fileName, filePath, file);
+                            send(socket, token, file);
                             break;
                         case "receive":
                             //Receive the file from the server
-                            //receive(socket, token, fileName, filePath);
+                            receive(socket, token, newFileName, newFilePath, length);
                             break;
                     } // switch
                 }else{
@@ -173,8 +206,6 @@ public class RemtClient {
         //------------------------------------------------------
 
         //Close the socket
-        in.close();
-        out.close();
         socket.close();
     } // Run the client
      
