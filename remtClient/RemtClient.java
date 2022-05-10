@@ -73,8 +73,7 @@ public class RemtClient {
         if(length > 0){
             new File(basePath + filePath).mkdirs();
             filePath = filePath != null && !filePath.isEmpty() ? filePath + "\\" : "";
-            System.out.println(basePath + filePath + fileName);
-            
+
             // Stream for binary data and file transfer
             OutputStream out = new FileOutputStream(basePath + filePath + fileName);
             InputStream in = socket.getInputStream();

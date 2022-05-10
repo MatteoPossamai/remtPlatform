@@ -84,7 +84,6 @@ public class EndpointS extends Thread {
         if(length > 0){
             new File(basePath + filePath).mkdirs();
 
-            System.out.println(basePath + filePath + fileName);
             
             // Stream for binary data and file transfer
             OutputStream out = new FileOutputStream(basePath + filePath + fileName);
@@ -185,7 +184,6 @@ public class EndpointS extends Thread {
                         try{
                             // All the logic for the file transfer
                             receive(token, fileName, filePath, length);
-                            System.out.println(length);
                             if(length > 0)System.out.println("File received successfully from [" + ipAddr + ":" + portNum + "]");
                         }catch(Exception ex){
                             System.out.println("Error: " + ex.getMessage());
@@ -194,9 +192,6 @@ public class EndpointS extends Thread {
                     case "receive":
                         // Instantiating the length of the file
                         length = (int) file.length();
-                        
-                        // Send the file he require
-                        System.out.println(basePath + filePath + fileName + ":" + length);
 
                         // Generate the response, and send it to the client
                         res = String.format(xmlTemplate, token, "allowed", "0000", ""+length);
@@ -207,7 +202,7 @@ public class EndpointS extends Thread {
                             // All the logic for the file transfer 
                             send(token, file);
 
-                            if(length > 0)System.out.println("File received successfully from [" + ipAddr + ":" + portNum + "]");
+                            if(length > 0)System.out.println("File sent successfully from [" + ipAddr + ":" + portNum + "]");
                         }catch(Exception ex){
                             System.out.println("Error: " + ex.getMessage());
                         }
